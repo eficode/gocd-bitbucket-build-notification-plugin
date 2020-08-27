@@ -72,34 +72,47 @@ public class StageStatusRequestExecutor implements RequestExecutor {
 
             if (gitUrl.contains(pluginSettings.getApiUrl())) {
                 String revision = this.request.pipeline.buildCause.get(0).modifications.get(0).revision;
-                URL url = new URL(pluginSettings.getApiUrl() + "/rest/build-status/1.0/commits/" + revision);
-                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-
-                connection.setRequestMethod("POST");
-                connection.setRequestProperty("Authorization", getAuthHeader(pluginSettings));
-                connection.setRequestProperty("Content-Type", "application/json");
-                connection.setRequestProperty("Accept", "application/json");
-                connection.setDoOutput(true);
-
-                OutputStream os = connection.getOutputStream();
-                String buildUrl = pluginSettings.getGoServerUrl() + "/go/pipelines/value_stream_map/" + request.pipeline.name + "/" + request.pipeline.counter;
-                byte[] input = ("{\"state\": \"" + this.parseBuildState(request.pipeline.stage.state) + "\", " +
-                        "\"key\": \"" + revision + "\", " +
-                        "\"name\": \"" + request.pipeline.counter + "\", " +
-                        "\"url\": \"" + buildUrl + "\"}").getBytes("utf-8");
-                os.write(input, 0, input.length);
-
-                BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"));
-                StringBuilder response = new StringBuilder();
-                String responseLine;
-
-                while ((responseLine = br.readLine()) != null) {
-                    response.append(responseLine.trim());
-                }
-                System.out.println(response.toString());
-                connection.getInputStream().close();
+                updateBitbucket(pluginSettings, revision);
             }
         }
+    }
+
+    private void updateBitbucket(PluginSettings pluginSettings, String revision) throws Exception {
+        URL url = new URL(pluginSettings.getApiUrl() + "/rest/build-status/1.0/commits/" + revision);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Authorization", getAuthHeader(pluginSettings));
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setDoOutput(true);
+
+        OutputStream os = connection.getOutputStream();
+        String buildUrl = pluginSettings.getGoServerUrl() + "/go/pipelines/value_stream_map/" + request.pipeline.name + "/" + request.pipeline.counter;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"state\": \"");
+        sb.append(parseBuildState(request.pipeline.stage.state));
+        sb.append("\", \"key\": \"");
+        sb.append(revision);
+        sb.append("\", \"name\": \"");
+        sb.append(request.pipeline.counter);
+        sb.append("\", \"url\": \"");
+        sb.append(buildUrl);
+        sb.append("\"}");
+
+        byte[] input = sb.toString().getBytes("utf-8");
+        os.write(input, 0, input.length);
+
+        BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"));
+        StringBuilder response = new StringBuilder();
+        String responseLine;
+
+        while ((responseLine = br.readLine()) != null) {
+            response.append(responseLine.trim());
+        }
+        System.out.println(response.toString());
+        connection.getInputStream().close();
     }
 
     private String parseBuildState(String stageState) {
@@ -109,6 +122,7 @@ public class StageStatusRequestExecutor implements RequestExecutor {
             case "Passed":
                 return "SUCCESSFUL";
             case "Failed":
+            case "Cancelled":
                 return "FAILED";
         }
         throw new IllegalArgumentException("Unknown state for stage: " + stageState);
