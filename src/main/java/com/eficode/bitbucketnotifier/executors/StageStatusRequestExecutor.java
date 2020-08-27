@@ -90,18 +90,13 @@ public class StageStatusRequestExecutor implements RequestExecutor {
         OutputStream os = connection.getOutputStream();
         String buildUrl = pluginSettings.getGoServerUrl() + "/go/pipelines/value_stream_map/" + request.pipeline.name + "/" + request.pipeline.counter;
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"state\": \"");
-        sb.append(parseBuildState(request.pipeline.stage.state));
-        sb.append("\", \"key\": \"");
-        sb.append(revision);
-        sb.append("\", \"name\": \"");
-        sb.append(request.pipeline.counter);
-        sb.append("\", \"url\": \"");
-        sb.append(buildUrl);
-        sb.append("\"}");
+        Map<String, String> body = new HashMap<>();
+        body.put("state", parseBuildState(request.pipeline.stage.state));
+        body.put("key", revision);
+        body.put("name", request.pipeline.counter);
+        body.put("url", buildUrl);
 
-        byte[] input = sb.toString().getBytes("utf-8");
+        byte[] input = new GsonBuilder().create().toJson(body).getBytes("utf-8");
         os.write(input, 0, input.length);
 
         BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"));
@@ -111,6 +106,7 @@ public class StageStatusRequestExecutor implements RequestExecutor {
         while ((responseLine = br.readLine()) != null) {
             response.append(responseLine.trim());
         }
+
         System.out.println(response.toString());
         connection.getInputStream().close();
     }
