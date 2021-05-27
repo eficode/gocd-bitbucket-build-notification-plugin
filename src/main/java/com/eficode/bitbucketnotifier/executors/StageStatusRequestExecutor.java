@@ -83,7 +83,8 @@ public class StageStatusRequestExecutor implements RequestExecutor {
     {
         String gitUrl = (String) gitConfig.get("url");
 
-        if (gitUrl.contains(pluginSettings.getApiUrl())) {
+        URL url = new URL(pluginSettings.getApiUrl());
+        if (gitUrl.contains(url.getHost())) {
             String revision = this.request.pipeline.buildCause.get(0).modifications.get(0).revision;
             updateBitbucket(pluginSettings, revision);
         }
