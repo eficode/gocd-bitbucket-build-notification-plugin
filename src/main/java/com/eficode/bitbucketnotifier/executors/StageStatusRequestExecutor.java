@@ -27,7 +27,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.internal.LinkedTreeMap;
 import com.thoughtworks.go.plugin.api.response.DefaultGoPluginApiResponse;
 import com.thoughtworks.go.plugin.api.response.GoPluginApiResponse;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -66,14 +65,28 @@ public class StageStatusRequestExecutor implements RequestExecutor {
         PluginSettings pluginSettings = pluginRequest.getPluginSettings();
         Map material = this.request.pipeline.buildCause.get(0).material;
 
-        if (material.get("type").equals("git")) {
-            LinkedTreeMap gitConfig = (LinkedTreeMap) material.get("git-configuration");
-            String gitUrl = (String) gitConfig.get("url");
+        LinkedTreeMap gitConfig = new LinkedTreeMap();
+        if (material.get("type").equals("git"))
+        {
+            gitConfig = (LinkedTreeMap) material.get("git-configuration");
+            checkAndSend(pluginSettings, gitConfig);
+        }
+        else if (material.get("type").equals("scm"))
+        {
+            gitConfig = (LinkedTreeMap) material.get("scm-configuration");
+            checkAndSend(pluginSettings, gitConfig);
+        }
+    }
 
-            if (gitUrl.contains(pluginSettings.getApiUrl())) {
-                String revision = this.request.pipeline.buildCause.get(0).modifications.get(0).revision;
-                updateBitbucket(pluginSettings, revision);
-            }
+    private void checkAndSend(PluginSettings pluginSettings, LinkedTreeMap gitConfig)
+            throws Exception
+    {
+        String gitUrl = (String) gitConfig.get("url");
+
+        URL url = new URL(pluginSettings.getApiUrl());
+        if (gitUrl.contains(url.getHost())) {
+            String revision = this.request.pipeline.buildCause.get(0).modifications.get(0).revision;
+            updateBitbucket(pluginSettings, revision);
         }
     }
 
